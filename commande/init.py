@@ -129,4 +129,4 @@ async def after_example():
 
 """***************************************RUN***************************************"""
 example.start()
-bot.run("NTMxODIyMjQ4ODkwNDY2MzA2.XiQUjA.dRumEFGhCFLxHwsbS8_3KE8QZac")
+bot.run("")
