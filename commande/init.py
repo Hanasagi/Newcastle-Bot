@@ -7,7 +7,10 @@ import Danbooru
 import al_id
 import shipInfo
 import testC
+import sys
+import signal
 import skillInfo
+import json
 from DAO import DAO
 from discord.ext import commands, tasks
 import random
@@ -16,10 +19,19 @@ import re
 """***************************************VARIABLE***************************************"""
 bot = commands.Bot(command_prefix='n!')
 
+"""***************************************SIGNAL HANDLING***************************************"""
+def shutdown_signal(signum, stack):
+    print("Shutting down, wait a few seconds")
+    sys.exit()
+    time.sleep(1)
+    sys.exit()
+
+signal.signal(signal.SIGINT,shutdown_signal)
+
 """***************************************COMMANDE***************************************"""
 @bot.event
 async def on_ready():
-    print('Logged on as {0}!'.format(bot.user.name))
+    print('{0} online!'.format(bot.user.name))
     await bot.change_presence(status=discord.Status.idle, activity=discord.Game("bully Jules"))
 
 def is_admin():
@@ -85,23 +97,21 @@ async def skill(ctx,*arg):
 
 @bot.command(name="test")
 @commands.has_role('Admirals')
-async def test(ctx):
-    await testC.chibre(ctx)
+async def test(ctx,*arg):
+    await testC.sub(ctx,arg)
 
 @bot.command(name="shiplist")
 @commands.has_role('Admirals')
 async def updatelist(ctx):
-    try:
         dao=DAO()
         dao.select("ship", ["Name"])
         nameList = [item[0].lower() for item in dao.cursor.fetchall()]
         nameSet=set(nameList)
-        with open('shipNameList.txt', 'a+', encoding='utf8') as f:
-            for n in nameSet:
-                f.write(str(n)+"\n")
+        with open('../json/shipList.json', 'w', encoding='utf8') as f:
+            outlist = json.dumps(list(nameSet))
+            f.write(outlist)
         await ctx.send("Liste mise à jour !")
-    except:
-        await ctx.send("Tu n'as pas les droits")
+
 
 @updatelist.error
 @test.error
@@ -112,21 +122,21 @@ async def error(ctx, error):
         await ctx.send("Tu n'as pas les droits !")
 """***************************************LOOP***************************************"""
 @tasks.loop(minutes=1)
-async def example():
+async def booru():
     await Danbooru.post(bot.get_channel(668493142349316106), bot.get_channel(668428634201260042))
 
-@example.before_loop
+@booru.before_loop
 async def before_example():
     print("Début de boucle")
     await bot.wait_until_ready()
 
 
-@example.after_loop
+@booru.after_loop
 async def after_example():
     print("Fin de boucle")
 
 
 
 """***************************************RUN***************************************"""
-example.start()
-bot.run("")
+booru.start()
+bot.run("NTMxODIyMjQ4ODkwNDY2MzA2.Xlev_Q.-T626IoSQjPbyQWrkby-KgSyr4k")

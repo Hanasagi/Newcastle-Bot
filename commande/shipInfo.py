@@ -5,7 +5,7 @@ from DAO import DAO
 import asyncio
 import difflib
 import discord
-
+import json
 async def info(ctx,ship1,ship2=None,ship3=None,ship4=None,bot=None,isKai=False):
     shipN=ship1
     if ship2 != None:
@@ -15,7 +15,9 @@ async def info(ctx,ship1,ship2=None,ship3=None,ship4=None,bot=None,isKai=False):
             if ship4 != None:
                 shipN += " "+ship4
 
-    nameList = [line.rstrip('\n') for line in open('./textfile/shipNameList.txt', 'r', encoding='utf8')]
+    with open('../json/shipList.json', 'r', encoding='utf8') as input:
+        data = input.read()
+    nameList = json.loads(data)
     shipN = shipN.replace(' ','_').title()
     if not shipN.lower() in nameList:
         simili = difflib.get_close_matches(shipN,set(nameList))

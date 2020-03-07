@@ -2,12 +2,15 @@ from DAO import DAO
 import discord
 import asyncio
 import difflib
+import json
 
 async def getSkill(ctx,ship):
     shipName = ""
     for s in ship:
         shipName += s + " "
-    nameList = [line.rstrip('\n') for line in open('../textfile/shipNameList.txt', 'r', encoding='utf8')]
+    with open('../json/shipList.json', 'r', encoding='utf8') as input:
+        data = input.read()
+    nameList = json.loads(data)
     shipName = shipName.rstrip().replace(' ', '_').title()
     if not shipName.lower() in nameList:
         simili = difflib.get_close_matches(shipName, set(nameList))
