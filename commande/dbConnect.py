@@ -3,6 +3,7 @@ from mysql.connector import Error
 from mysql.connector import errorcode
 from DAO import DAO
 import discord
+import json
 
 import re
 import unicodedata
@@ -14,10 +15,9 @@ async def dbshiplink(ctx):
     dao = DAO()
     getShipName = requests.get("https://azurlane.koumakan.jp/List_of_Ships").text
     nameHtml = BeautifulSoup(getShipName, "html5lib")  # Recupere tout le code html pour récup le nom des ship
-    name = nameHtml.select('table[class*="wikitable sortable"] tr td:nth-of-type(2)')
-    r = nameHtml.select('table[class*="wikitable sortable"] tr td:nth-of-type(3)')
-    nameSet = set(name)
-    for n,o in zip(nameSet,r):
+    name = nameHtml.select('table[class*="wikitable sortable"]:nth-of-type(1) tr td:nth-of-type(2), table[class*="wikitable sortable"]:nth-of-type(2) tr td:nth-of-type(2), table[class*="wikitable sortable"]:nth-of-type(3) tr td:nth-of-type(2)')
+    r = nameHtml.select('table[class*="wikitable sortable"]:nth-of-type(1) tr td:nth-of-type(3), table[class*="wikitable sortable"]:nth-of-type(2) tr td:nth-of-type(3), table[class*="wikitable sortable"]:nth-of-type(3) tr td:nth-of-type(3)') #rarete
+    for n,o in zip(name,r):
         if not "Unreleased" in o.get_text() or "Izumo" in n.get_text():
             mod = n.get_text()
             if re.search(r'[ ]', n.get_text()):
@@ -139,3 +139,103 @@ async def dbskillset(ctx):
             await ctx.send("Erreur")
         except mysql.connector.errors.DataError:
             print(skillList)
+
+
+async def dbshipupdate(ctx):
+    dao = DAO()
+
+    with open("../json/shipList.json") as charList:
+        data = charList.read()
+    nameList = json.loads(data)
+
+    getShipName = requests.get("https://azurlane.koumakan.jp/List_of_Ships").text
+    nameHtml = BeautifulSoup(getShipName, "html5lib")
+    name = nameHtml.select(
+        'table[class*="wikitable sortable"]:nth-of-type(1) tr td:nth-of-type(2), table[class*="wikitable sortable"]:nth-of-type(2) tr td:nth-of-type(2), table[class*="wikitable sortable"]:nth-of-type(3) tr td:nth-of-type(2)')
+    r = nameHtml.select(
+        'table[class*="wikitable sortable"]:nth-of-type(1) tr td:nth-of-type(3), table[class*="wikitable sortable"]:nth-of-type(2) tr td:nth-of-type(3), table[class*="wikitable sortable"]:nth-of-type(3) tr td:nth-of-type(3)')  # rarete
+
+    for n,m in zip(name,r):
+        if m.get_text() != "Unreleased":
+            if not n.get_text().lower().replace(" ","_") in nameList:
+                mod = n.get_text()
+                if re.search(r'[ ]', n.get_text()):
+                    mod = n.get_text().replace(' ', '_');
+                getShipInfo = requests.get("https://azurlane.koumakan.jp/{}".format(mod)).text
+                shipHtml = BeautifulSoup(getShipInfo,
+                                         "html5lib")  # Recupere tout le code html pour récup les infos des ship
+                """***************************************DB ELEMENT***************************************"""
+                classe = shipHtml.select('td > a[title*="class"]:first-child')
+                if len(classe) < 1:
+                    classe = shipHtml.select('td > a[title*="Type"]:first-child')
+                classeURL = shipHtml.select(
+                    'div#mw-content-text > div.mw-parser-output div > table.wikitable tr:nth-of-type(3) > td > a[href*="class"]')
+                if len(classeURL) < 1:
+                    classeURL = shipHtml.select(
+                        'div#mw-content-text > div.mw-parser-output div > table.wikitable tr:nth-of-type(3) > td > a[href*="Type"]')
+                image = shipHtml.select('div.adaptiveratioimg > a > img')
+                imageKai = shipHtml.select('a.image[href*="Kai"] > img')
+                build = shipHtml.select('div div div[style*="flex:1"] > table.wikitable tr > td a[href*="Constr"]')
+                chibi = shipHtml.select('a[href*="Chibi"] > img')
+                chibiKai = shipHtml.select('img[alt*="KaiChibi"]')
+                rarete = shipHtml.select(
+                    'div#mw-content-text > div.mw-parser-output div ~ div > table.wikitable:first-of-type tr ~ tr td[colspan*="2"] a')
+                type = shipHtml.select(
+                    'div#mw-content-text > div.mw-parser-output div ~ div ~ div > table.wikitable:first-of-type tr ~ tr ~ tr td > a ~ a[title*="Cat"]')
+                typeKai = shipHtml.select(
+                    'div#mw-content-text > div.mw-parser-output div ~ div ~ div > table.wikitable:first-of-type tr ~ tr ~ tr td > a ~ a[title*="Cat"]')
+                nation = shipHtml.select(
+                    'div#mw-content-text > div.mw-parser-output div ~ div ~ div > table.wikitable tr ~ tr th[style*="height:"] ~ td > a ~a')
+                pixivName = shipHtml.select('a[title*="Artists"]')
+                pixivURL = shipHtml.select('.mw-body-content a[href*="pixiv"]')
+                if len(pixivURL) > 1:
+                    artisteURL = pixivURL[0]['href']
+                else:
+                    artisteURL = "Inconnu"
+                if len(build) > 0:
+                    buildTime = build[0].get_text()
+                else:
+                    buildTime = "Inconnu"
+                if len(pixivName) > 1:
+                    artiste = pixivName[0].get_text()
+                else:
+                    artiste = "Inconnu"
+                if len(imageKai) > 0:
+                    typeKaiS = type[0].get_text()
+                if mod == "Fusou" or mod == "Yamashiro" or mod == "Ise" or mod == "Hyuuga":
+                    typeKaiS = "Aviation Battleship"
+                    typeS = "Battleship"
+                if len(type) < 1:
+                    print(mod)
+                    break
+                typeS = type[0].get_text()
+
+                if len(chibi) > 1:
+                    chibi = chibi[0]['src']
+                    chibiKai = chibiKai[0]['src']
+                else:
+                    chibi = "None"
+                    chibiKai = "None"
+                try:
+                    dao.insert("ship",
+                               ["Name", "Classe", "Image", "Chibi", "BuildTime", "Rarity", "Type", "Nation", "Pixiv",
+                                "PixivURL", "ClasseURL"],
+                               [mod, classe[0].get_text(), image[0]['src'], chibi, buildTime, rarete[0]['title'], typeS,
+                                nation[0].get_text(), artiste, artisteURL, classeURL[0]['href']])
+                    if len(imageKai) > 0:
+                        dao.insert("ship", ["Name", "Classe", "Image", "Chibi", "BuildTime", "Rarity", "Type", "Nation",
+                                            "Pixiv", "PixivURL", "ClasseURL", "ImageKai", "ChibiKai", "TypeKai"],
+                                   [mod, classe[0].get_text(), image[0]['src'], chibi, buildTime, rarete[0]['title'],
+                                    typeS, nation[0].get_text(), artiste, artisteURL, classeURL[0]['href'],
+                                    imageKai[0]['src'], chibiKai, typeKaiS])
+                except IndexError:
+                    await ctx.send("Erreur")
+                dao = DAO()
+                dao.select("ship", ["Name"])
+                nameList = [item[0].lower() for item in dao.cursor.fetchall()]
+                nameSet = set(nameList)
+                with open('../json/shipList.json', 'w', encoding='utf8') as f:
+                    outlist = json.dumps(list(nameSet))
+                    f.write(outlist)
+                await ctx.send("Liste mise à jour !")
+

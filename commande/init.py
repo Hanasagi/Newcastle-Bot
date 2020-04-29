@@ -11,6 +11,7 @@ import sys
 import signal
 import skillInfo
 import json
+import sub as Booru
 from DAO import DAO
 from discord.ext import commands, tasks
 import random
@@ -20,13 +21,11 @@ import re
 bot = commands.Bot(command_prefix='n!')
 
 """***************************************SIGNAL HANDLING***************************************"""
-def shutdown_signal(signum, stack):
-    print("Shutting down, wait a few seconds")
-    sys.exit()
-    time.sleep(1)
+"""def shutdown_signal(signum, stack):
+    print("Shutting down")
     sys.exit()
 
-signal.signal(signal.SIGINT,shutdown_signal)
+signal.signal(signal.SIGINT,shutdown_signal)"""
 
 """***************************************COMMANDE***************************************"""
 @bot.event
@@ -34,20 +33,20 @@ async def on_ready():
     print('{0} online!'.format(bot.user.name))
     await bot.change_presence(status=discord.Status.idle, activity=discord.Game("bully Jules"))
 
-def is_admin():
-    async def predicate(ctx):
-            return ctx.author.roles and ctx.author.roles.has
-    return commands.check(predicate)
-
 @bot.command(name="dbshipset")
 @commands.has_role("Bot Master")
-async def dbShipupdate(message):
+async def dbShipset(message):
     await dbConnect.dbshiplink(message);
 
 @bot.command(name="dbskillset")
 @commands.has_role("Bot Master")
-async def dbSkillupdate(message):
+async def dbSkillset(message):
     await dbConnect.dbskillset(message);
+
+@bot.command(name="dbshipupdate")
+@commands.has_role("Bot Master")
+async def dbShipupdate(message):
+    await dbConnect.dbshipupdate(message);
 
 @bot.command(name="ship", help="Envoie les informations du personnage demandé\nExemple : n!ship Ise")
 async def ship(ctx,ship1=None,ship2=None,ship3=None,ship4=None):
@@ -96,9 +95,12 @@ async def skill(ctx,*arg):
         await ctx.send("Format: n!skill <Nom> (Exemple: n!skill Cleveland)")
 
 @bot.command(name="test")
-@commands.has_role('Admirals')
-async def test(ctx,*arg):
-    await testC.sub(ctx,arg)
+async def test(ctx,num,*arg):
+    try:
+        if num=="1":
+            await testC.chibre(ctx,arg)
+    except:
+        print(sys.exc_info())
 
 @bot.command(name="shiplist")
 @commands.has_role('Admirals')
@@ -112,31 +114,58 @@ async def updatelist(ctx):
             f.write(outlist)
         await ctx.send("Liste mise à jour !")
 
+@bot.command(name="fbi")
+@commands.has_role('Admirals')
+async def fbi(ctx,*arg):
+    with open("../json/forbiddenCharacter.json",'r') as f:
+        data = f.read()
+    datajson = json.loads(data)
+    ship=""
+    for a in arg:
+        ship +=a+" "
+    datajson["forbiddenChar"].append(ship[:-1])
+    with open("../json/forbiddenCharacter.json",'w') as out:
+        json.dump(datajson,out)
+    await ctx.send("Ajouté !")
+
+@bot.command(name="sub")
+async def sub(ctx, type, *arg):
+    await Booru.sub(ctx,type,arg)
 
 @updatelist.error
 @test.error
-@dbSkillupdate.error
-@dbShipupdate.error
+@dbSkillset.error
+@dbShipset.error
 async def error(ctx, error):
     if isinstance(error, commands.MissingRole):
         await ctx.send("Tu n'as pas les droits !")
+
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        await ctx.send("Commande inexistante")
+        return
+
 """***************************************LOOP***************************************"""
 @tasks.loop(minutes=1)
 async def booru():
-    await Danbooru.post(bot.get_channel(668493142349316106), bot.get_channel(668428634201260042))
-
+    try:
+        await Danbooru.post(bot.get_channel(668493142349316106), bot.get_channel(668428634201260042))
+    except:
+        print(sys.exc_info())
 @booru.before_loop
-async def before_example():
+async def before_booru():
     print("Début de boucle")
     await bot.wait_until_ready()
 
 
 @booru.after_loop
-async def after_example():
+async def after_booru():
     print("Fin de boucle")
 
 
 
 """***************************************RUN***************************************"""
 booru.start()
-bot.run("NTMxODIyMjQ4ODkwNDY2MzA2.Xlev_Q.-T626IoSQjPbyQWrkby-KgSyr4k")
+bot.run("NTMxODIyMjQ4ODkwNDY2MzA2.XmS44w.vm7kPOzryf7yy4WkaHsBxgtZZtU")
