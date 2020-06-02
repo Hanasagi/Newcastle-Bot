@@ -237,5 +237,5 @@ async def dbshipupdate(ctx):
                 with open('../json/shipList.json', 'w', encoding='utf8') as f:
                     outlist = json.dumps(list(nameSet))
                     f.write(outlist)
-                await ctx.send("Liste mise à jour !")
+    await ctx.send("Liste mise à jour !")
 

@@ -10,6 +10,7 @@ import testC
 import sys
 import signal
 import skillInfo
+import shipSkin
 import json
 import sub as Booru
 from DAO import DAO
@@ -21,15 +22,12 @@ import re
 bot = commands.Bot(command_prefix='n!')
 
 """***************************************SIGNAL HANDLING***************************************"""
-"""def shutdown_signal(signum, stack):
-    print("Shutting down")
-    sys.exit()
 
-signal.signal(signal.SIGINT,shutdown_signal)"""
 
 """***************************************COMMANDE***************************************"""
 @bot.event
 async def on_ready():
+    print(sys.exc_info())
     print('{0} online!'.format(bot.user.name))
     await bot.change_presence(status=discord.Status.idle, activity=discord.Game("bully Jules"))
 
@@ -54,6 +52,13 @@ async def ship(ctx,ship1=None,ship2=None,ship3=None,ship4=None):
         await shipInfo.info(ctx,ship1,ship2,ship3,ship4,bot,False)
     else:
         await ctx.send("Format: n!ship <Nom> (Exemple: n!ship Prinz Eugen)")
+
+@bot.command(name="skin")
+async def skin(ctx,ship):
+    try:
+        await shipSkin.getSkin(ctx,ship,bot)
+    except:
+        print(sys.exc_info())
 
 @bot.command(name="id",help="list pour récuperer la liste des id enregistrer, add pour rajouter son id\n Exemple : n!id -add @Kurosagi 2974398439 Sandy")
 async def idAdd(ctx, method="x", pseudo="x", id="x", server="x"):
@@ -98,7 +103,7 @@ async def skill(ctx,*arg):
 async def test(ctx,num,*arg):
     try:
         if num=="1":
-            await testC.chibre(ctx,arg)
+            await testC.testfield(ctx,arg)
     except:
         print(sys.exc_info())
 
@@ -168,4 +173,4 @@ async def after_booru():
 
 """***************************************RUN***************************************"""
 booru.start()
-bot.run("NTMxODIyMjQ4ODkwNDY2MzA2.XmS44w.vm7kPOzryf7yy4WkaHsBxgtZZtU")
+bot.run("NTMxODIyMjQ4ODkwNDY2MzA2.XqmRtQ.4cVhVgbQ4e5ZRQhP_pflo0G37I8")
