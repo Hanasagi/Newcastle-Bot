@@ -5,9 +5,9 @@ from mysql.connector import errorcode
 class DAO:
     def __init__(self):
         self.host = 'localhost'
-        self.user = 'root'
+        self.user = 'kurosagi'
         self.database = 'alship'
-        self.password = ''
+        self.password = 'hyr-09tyh/'
         self.connection = ''
         self.cursor=''
         self.connect()
