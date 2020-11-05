@@ -1,55 +1,130 @@
-"""
 import tweepy
 import time
+import discord
 import sys
 import inspect
 import asyncio
 import json
-import nest_asyncio
 import signal
-import functools
+import traceback
+import requests
+from credentials import Creds
+c = Creds()
 
-API_KEY = ""
-API_SECRET_KEY = ""
-ACCESS_TOKEN = ""
-ACCESS_TOKEN_SECRET = ""
+API_KEY = c.get_api_key()
+API_SECRET_KEY = c.get_api_secret_key()
+ACCESS_TOKEN = c.get_access_token()
+ACCESS_TOKEN_SECRET = c.get_access_token_secret()
 
 auth = tweepy.OAuthHandler(API_KEY, API_SECRET_KEY)
 auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
 auth.secure = True
 
-myStream = None
-
-
-def shutdown_tweepy(signum, frame):
-    myStream.disconnect()
-
-
 api = tweepy.API(auth)
-nest_asyncio.apply()
-signal.signal(signal.SIGINT, shutdown_tweepy)
+
+
+# http://gettwitterid.com/?user_name=itanimeirl&submit=GET+USER+ID
+
+def from_creator(status):
+    if hasattr(status, 'retweeted_status'):
+        return False
+    elif status.in_reply_to_status_id != None:
+        return False
+    elif status.in_reply_to_screen_name != None:
+        return False
+    elif status.in_reply_to_user_id != None:
+        return False
+    else:
+        return True
 
 
 class MyStreamListener(tweepy.StreamListener):
-    def __init__(self, channel):
-        super(MyStreamListener, self).__init__()
-        self.channel = channel
-        self.loop = asyncio.get_event_loop()
 
-    async def send_message(self, status):
-        print(status.text)
-        await self.channel.send('TWEET: ' + str(status.text))
-        return "1"
+    def __init__(self, loop):
+        super(MyStreamListener, self).__init__()
+        self.loop = loop
+
+    async def msg_send_wrapper(self, status):
+        url = c.get_webhook_url()
+        data = {}
+
+        data["embeds"] = []
+        embed = {}
+
+        embed["url"] = "https://twitter.com"
+        if hasattr(status,'text'):
+            try:
+                embed["description"] = status.extended_tweet['full_text']
+            except AttributeError:
+                embed["description"] = status.text
+        embed["footer"] = {
+            "text": str(status.created_at)
+        }
+        if status.is_quote_status:
+            embed["fields"] = [
+                {
+                    "name": "Quoted Tweet",
+                    "value": status.quoted_status_permalink["expanded"]
+                }
+            ]
+        embed["author"] = {
+            "name": status.user.name,
+            "icon_url": status.user.profile_image_url_https
+        }
+        embed["colour"] = 0x1da1f2
+        if 'media' in status.extended_tweet["entities"]:
+            nb = 0
+            for media in status.extended_tweet["entities"]["media"]:
+                print(media)
+                print(media["media_url_https"])
+                if nb < 1:
+                    embed["image"] = {
+                        "url": media["media_url_https"]
+                    }
+                    print(media["media_url_https"])
+                else:
+                    data["embeds"].append({
+                        "url": "https://twitter.com",
+                        "image": {
+                            "url": media["media_url_https"]
+                        }
+                    })
+                nb += 1
+            data["embeds"].insert(0, embed)
+        else:
+            data["embeds"].append(embed)
+        result = requests.post(url, data=json.dumps(data), headers={"Content-Type": "application/json"})
+
+        try:
+            result.raise_for_status()
+        except requests.exceptions.HTTPError as err:
+            print(err)
+        else:
+            pass
+
+        return
 
     def on_status(self, status):
-        print(status.text)
         if status.text != "NoneType":
-            result = self.loop.run_until_complete(self.send_message(status))
-            print("Future:"+result)
+            if from_creator(status) and hasattr(status,'extended_tweet'):
+                try:
+                    send_fut = asyncio.run_coroutine_threadsafe(self.msg_send_wrapper(status), self.loop)
+                    send_fut.result()
+                except:
+                    print(str(traceback.format_exc()))
+                    pass
 
 
-def checkTweet(bot):
-    global myStream
-    myStream = tweepy.Stream(auth=api.auth, listener=MyStreamListener(bot))
-    myStream.filter(track=['AzurLane_EN','azurlane_staff'], is_async=True)
-"""
+def checkTweet(loop):
+    counter = 1
+    print("Twitter stream is running")
+    myStream = tweepy.Stream(auth=api.auth, listener=MyStreamListener(loop=loop), tweet_mode='extended')
+    while True:
+        try:
+            myStream.filter(follow=['993682160744738816', '864400939125415936'])
+        except:
+            print(traceback.format_exc())
+            time.sleep(60 * counter)
+            counter += 1
+            print("Twitter stream has restarted")
+            pass

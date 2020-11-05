@@ -1,9 +1,9 @@
 """***************************************IMPORT***************************************"""
 import discord
-#import tweepy
 import json
 import helpCorner
 import time
+import threading
 import testC
 import sys
 import signal
@@ -12,6 +12,8 @@ import re
 import asyncio
 import threading
 import welcome_message
+import traceback
+import random
 from db import dbConnect
 from ship import buildTime
 from db import al_id
@@ -21,19 +23,22 @@ from ship import shipSkin
 from ship import shipStat
 from webhook_rss import sub as Booru
 from webhook_rss import Danbooru
-#from webhook_rss import twitter
+from webhook_rss import twitter
+# from webhook_rss import twitter
 from DAO import DAO
 from discord.ext import commands, tasks
+from credentials import Creds
 
 """***************************************VARIABLE***************************************"""
-bot = commands.Bot(command_prefix='n!')
+c = Creds()
+bot = commands.Bot(command_prefix=c.get_beta_prefix())
 bot.remove_command('help')
 
 """***************************************SIGNAL HANDLING***************************************"""
 
+
 def stop_everything(sigNum, frame):
-    # booru.stop()
-    sys.exit()
+    sys.exit(0)
 
 
 signal.signal(signal.SIGINT, stop_everything)
@@ -44,13 +49,23 @@ signal.signal(signal.SIGINT, stop_everything)
 @bot.event
 async def on_ready():
     print('{0} online!'.format(bot.user.name))
-    await bot.change_presence(status=discord.Status.idle, activity=discord.Game("bully Sandy"))
-"""twitter.checkTweet(bot.get_channel(534084645109628938))"""
+    rndChar = random.choice(["Essex", "Sandy", "Jules", "Hammann", "Hipper", "Akashi", "Manjuu"])
+    await bot.change_presence(status=discord.Status.idle, activity=discord.Game("bully " + rndChar))
+    await bot.wait_until_ready()
+    thread_twitter_stream = threading.Thread(target=twitter.checkTweet,
+                                             args=(asyncio.get_event_loop(),),
+                                             daemon=True)
+    thread_twitter_stream.start()
+    booru.start()
 
 
 @bot.event
-async def on_member_join(member):
-    await welcome_message.welcome(member)
+async def on_guild_join(guild):
+    data = json.load(open("../json/guildInfo.json", "r"))
+    data["guild"].append({"id": guild.id})
+    with open("../json/guildInfo.json", "w") as o:
+        json.dump(data, o)
+
 
 @bot.event
 async def on_message(message):
@@ -58,7 +73,7 @@ async def on_message(message):
         embed = discord.Embed()
         thumb = discord.File("../image/NewcastleIcon.png", filename="thumb.png")
         embed.set_thumbnail(url="attachment://thumb.png")
-        embed.add_field(name="Préfixe", value="n!", inline=False)
+        embed.add_field(name="Préfixe", value=bot.command_prefix, inline=False)
         embed.add_field(name="Créateur", value="@Kurosagi#1904", inline=False)
         embed.add_field(name="Divers", value="**1. n!help** pour obtenir de l'aide\n"
                                              "2. API utilisé : [AzurAPI](https://azurapi.github.io/)", inline=False)
@@ -68,10 +83,7 @@ async def on_message(message):
 
 @bot.command(name="help")
 async def help(ctx, options=""):
-    try:
-        await helpCorner.help(ctx, options)
-    except:
-        print(sys.exc_info())
+    await helpCorner.help(ctx, options)
 
 
 @bot.command(name="dbshipset")
@@ -94,10 +106,13 @@ async def dbShipupdate(message):
 
 @bot.command(name="ship")
 async def ship(ctx, ship1=None, ship2=None, ship3=None, ship4=None):
-    if ship1 != None:
-        await shipInfo.info(ctx, ship1, ship2, ship3, ship4, bot, False)
-    else:
-        await ctx.send("Format: n!ship <Nom> (Exemple: n!ship Prinz Eugen)")
+    try:
+        if ship1 != None:
+            await shipInfo.info(ctx, ship1, ship2, ship3, ship4, bot, False)
+        else:
+            await ctx.send("Format: n!ship <Nom> (Exemple: n!ship Prinz Eugen)")
+    except:
+        await ctx.send("<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
 
 
 @bot.command(name="skin")
@@ -105,7 +120,7 @@ async def skin(ctx, ship):
     try:
         await shipSkin.getSkin(ctx, ship, bot)
     except:
-        print(sys.exc_info())
+        await ctx.send("<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
 
 
 @bot.command(name="stat")
@@ -128,6 +143,11 @@ async def idAdd(ctx, method="x", pseudo="x", id="x", server="x"):
     else:
         await ctx.send(embed=discord.Embed(
             description="**Utilisation possible** :\nn!id list : renvoie la liste d'id enregistrée\nn!id add @Pseudo 'ID' 'SERVEUR' : enregistre une nouvelle id"))
+
+
+@bot.command(name="search")
+async def danbooru_search(ctx, character, number=1):
+    await Danbooru.search_picture(ctx, character, number)
 
 
 @bot.command(name="send")
@@ -159,12 +179,12 @@ async def skill(ctx, *arg):
 
 
 @bot.command(name="test")
-async def test(ctx, num, *arg):
+async def test(ctx, arg1=None):
     try:
-        if num == "1":
-            await testC.testfield(ctx, arg)
+        await testC.testfield(ctx, arg1)
     except:
-        print(sys.exc_info())
+        await ctx.send("<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
+
 
 
 @bot.command(name="shiplist")
@@ -198,9 +218,9 @@ async def fbi(ctx, *arg):
 @bot.command(name="sub")
 async def sub(ctx, type, *arg):
     try:
-        await Booru.sub(ctx,type,arg)
+        await Booru.sub(ctx, type, arg)
     except:
-        print(sys.exc_info())
+        await ctx.send("<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
 
 
 @updatelist.error
@@ -218,12 +238,21 @@ async def on_command_error(ctx, error):
         await ctx.send("Commande inexistante")
         return
 
-@tasks.loop(minutes=1)
+
+@tasks.loop(seconds=20)
 async def booru():
     try:
-        await Danbooru.post(bot.get_channel(668493142349316106), bot.get_channel(668428634201260042))
+        await Danbooru.post(bot.get_channel(668493142349316106), bot.get_channel(668428634201260042),
+                            bot.get_channel(739145500560982034), bot)
     except:
-        print(sys.exc_info())
+        try:
+            await bot.get_channel(534084645109628938).send(
+                "<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
+        except:
+            await bot.get_channel(534084645109628938).send(
+                "<@!142682730776231936> check le vps pd")
+            booru.restart()
+
 
 @booru.before_loop
 async def before_booru():
@@ -236,8 +265,11 @@ async def after_booru():
     print("Fin de boucle")
 
 
+@bot.command(name="check")
+async def check(ctx, state=None):
+    await Danbooru.check(ctx, state)
+
+
 """"***************************************RUN***************************************"""
 
-booru.start()
-
-bot.run("")
+bot.run(c.get_beta_token())

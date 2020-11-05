@@ -104,5 +104,14 @@ async def sub(ctx,type,arg):
             embed.title="Suivi par : "
             embed.description=followList[:-1]
         await ctx.send(embed=embed)
+    elif "-clear" in type:
+        role = discord.utils.find(lambda r: r.name == 'Admirals', ctx.message.guild.roles)
+        if role in ctx.author.roles:
+            for data in data_list["data"]:
+                if ctx.message.guild.get_member(data["name"]) is None:
+                    data_list['data'].remove(data)
+            await ctx.send("Purge fini")
+        else:
+            print("Tu n'as pas les droits.")
     with open("../json/subBooru.json", "w") as out:
         json.dump(data_list, out)

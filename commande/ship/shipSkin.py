@@ -1,5 +1,6 @@
 import discord
 import json
+import asyncio
 from azurlane.azurapi import AzurAPI
 api = AzurAPI()
 
@@ -11,6 +12,7 @@ async def getSkin(ctx, ship, bot=None):
     ship = ship.lower()
 
     embedList = []
+
     for skin in api.getShip(ship=ship).get("skins"):
         embedBase = discord.Embed(title=api.getShip(ship=ship).get("names").get("en"), description=skin.get("name"))
         embedBase.set_image(url=skin.get("image"))
