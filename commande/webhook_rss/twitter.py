@@ -9,6 +9,7 @@ import signal
 import traceback
 import requests
 from credentials import Creds
+
 c = Creds()
 
 API_KEY = c.get_api_key()
@@ -52,7 +53,7 @@ class MyStreamListener(tweepy.StreamListener):
         embed = {}
 
         embed["url"] = "https://twitter.com"
-        if hasattr(status,'text'):
+        if hasattr(status, 'text'):
             try:
                 embed["description"] = status.extended_tweet['full_text']
             except AttributeError:
@@ -71,7 +72,11 @@ class MyStreamListener(tweepy.StreamListener):
             "name": status.user.name,
             "icon_url": status.user.profile_image_url_https
         }
-        embed["colour"] = 0x1da1f2
+        if status.user.id == "993682160744738816":
+            embed["color"] = 15263976
+        elif status.user.id == "864400939125415936":
+            embed["color"] = 16777215
+
         if 'media' in status.extended_tweet["entities"]:
             nb = 0
             for media in status.extended_tweet["entities"]["media"]:
@@ -105,14 +110,13 @@ class MyStreamListener(tweepy.StreamListener):
         return
 
     def on_status(self, status):
-        if status.text != "NoneType":
-            if from_creator(status) and hasattr(status,'extended_tweet'):
-                try:
-                    send_fut = asyncio.run_coroutine_threadsafe(self.msg_send_wrapper(status), self.loop)
-                    send_fut.result()
-                except:
-                    print(str(traceback.format_exc()))
-                    pass
+        if from_creator(status):
+            try:
+                send_fut = asyncio.run_coroutine_threadsafe(self.msg_send_wrapper(status), self.loop)
+                send_fut.result()
+            except:
+                print(str(traceback.format_exc()))
+                pass
 
 
 def checkTweet(loop):

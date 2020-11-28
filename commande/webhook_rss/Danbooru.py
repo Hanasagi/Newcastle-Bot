@@ -45,17 +45,16 @@ async def post(channel_sfw, channel_nsfw, channel_check, bot):
     try:
         x = json.load(open("../json/lastId.json"))
         currentId = int(x["booru"].get("id"))
-
         image = client.post_list(tags="azur_lane", limit=1, page=1)
+        print(image)
         for post in image:
-            print(image)
-            pass
+            break
             id = post['id']
             banned_artist = post['tag_string_artist']
             tag = post['tag_string_general']
 
         if not currentId == id:
-            if not "banned" in banned_artist and not "futanari" in tag and not "bestiality" in tag:
+            if not "banned" in banned_artist and not "futanari" in tag and not "bestiality" in tag and not post["is_pending"]:
                 currentId = id
                 loadSubList()
 
@@ -123,7 +122,7 @@ async def post(channel_sfw, channel_nsfw, channel_check, bot):
                         charList = character
                     if charList != "Non renseigné":
                         charList = charList.replace('_', ' ')
-                        nameShip = remove_duplicate_words(charList[:-1].title())
+                        nameShip = remove_duplicate_words(charList.title())
                     else:
                         nameShip = "Non renseigné"
                 if rating == "e" or rating == "q":

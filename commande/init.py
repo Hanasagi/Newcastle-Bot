@@ -14,6 +14,7 @@ import threading
 import welcome_message
 import traceback
 import random
+import pybooru
 from db import dbConnect
 from ship import buildTime
 from db import al_id
@@ -31,7 +32,7 @@ from credentials import Creds
 
 """***************************************VARIABLE***************************************"""
 c = Creds()
-bot = commands.Bot(command_prefix=c.get_beta_prefix())
+bot = commands.Bot(command_prefix=c.get_prefix(1))
 bot.remove_command('help')
 
 """***************************************SIGNAL HANDLING***************************************"""
@@ -51,7 +52,6 @@ async def on_ready():
     print('{0} online!'.format(bot.user.name))
     rndChar = random.choice(["Essex", "Sandy", "Jules", "Hammann", "Hipper", "Akashi", "Manjuu"])
     await bot.change_presence(status=discord.Status.idle, activity=discord.Game("bully " + rndChar))
-    await bot.wait_until_ready()
     thread_twitter_stream = threading.Thread(target=twitter.checkTweet,
                                              args=(asyncio.get_event_loop(),),
                                              daemon=True)
@@ -241,17 +241,18 @@ async def on_command_error(ctx, error):
 
 @tasks.loop(seconds=20)
 async def booru():
+    sleep_counter=1
     try:
         await Danbooru.post(bot.get_channel(668493142349316106), bot.get_channel(668428634201260042),
                             bot.get_channel(739145500560982034), bot)
+    except pybooru.exceptions.PybooruHTTPError:
+        time.sleep(60*sleep_counter)
+        booru.restart()
+        sleep_counter+=1
     except:
-        try:
-            await bot.get_channel(534084645109628938).send(
+        await bot.get_channel(534084645109628938).send(
                 "<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
-        except:
-            await bot.get_channel(534084645109628938).send(
-                "<@!142682730776231936> check le vps pd")
-            booru.restart()
+
 
 
 @booru.before_loop
@@ -272,4 +273,4 @@ async def check(ctx, state=None):
 
 """"***************************************RUN***************************************"""
 
-bot.run(c.get_beta_token())
+bot.run(c.get_token(1))
