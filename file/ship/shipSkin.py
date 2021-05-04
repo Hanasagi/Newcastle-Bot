@@ -5,10 +5,6 @@ from azurlane.azurapi import AzurAPI
 api = AzurAPI()
 
 async def getSkin(ctx, ship, bot=None):
-    api.updater.update()
-    with open('../json/shipList.json', 'r', encoding='utf8') as input:
-        data = input.read()
-    nameList = json.loads(data)
     ship = ship.lower()
 
     embedList = []

@@ -15,6 +15,8 @@ import welcome_message
 import traceback
 import random
 import pybooru
+import os
+import requests
 from db import dbConnect
 from ship import buildTime
 from db import al_id
@@ -28,11 +30,15 @@ from webhook_rss import twitter
 # from webhook_rss import twitter
 from DAO import DAO
 from discord.ext import commands, tasks
+from discord_slash import SlashCommand, SlashContext
+from discord_slash.utils.manage_commands import create_option, create_choice, remove_all_commands
 from credentials import Creds
 
 """***************************************VARIABLE***************************************"""
 c = Creds()
-bot = commands.Bot(command_prefix=c.get_prefix(1))
+guild_ids = [741227425232453634,531525155537682442]
+bot = commands.Bot(command_prefix=c.get_prefix(2))
+slash = SlashCommand(bot, sync_commands=True)
 bot.remove_command('help')
 
 """***************************************SIGNAL HANDLING***************************************"""
@@ -52,11 +58,12 @@ async def on_ready():
     print('{0} online!'.format(bot.user.name))
     rndChar = random.choice(["Essex", "Sandy", "Jules", "Hammann", "Hipper", "Akashi", "Manjuu"])
     await bot.change_presence(status=discord.Status.idle, activity=discord.Game("bully " + rndChar))
-    thread_twitter_stream = threading.Thread(target=twitter.checkTweet,
+    await remove_all_commands(c.get_id(2),c.get_token(2),guild_ids=guild_ids)
+    """thread_twitter_stream = threading.Thread(target=twitter.checkTweet,
                                              args=(asyncio.get_event_loop(),),
                                              daemon=True)
     thread_twitter_stream.start()
-    booru.start()
+    booru.start()"""
 
 
 @bot.event
@@ -73,10 +80,10 @@ async def on_message(message):
         embed = discord.Embed()
         thumb = discord.File("../image/NewcastleIcon.png", filename="thumb.png")
         embed.set_thumbnail(url="attachment://thumb.png")
-        embed.add_field(name="Préfixe", value=bot.command_prefix, inline=False)
-        embed.add_field(name="Créateur", value="@Kurosagi#1904", inline=False)
+        embed.add_field(name="PrÃ©fixe", value=bot.command_prefix, inline=False)
+        embed.add_field(name="CrÃ©ateur", value="@Kurosagi#1904", inline=False)
         embed.add_field(name="Divers", value="**1. n!help** pour obtenir de l'aide\n"
-                                             "2. API utilisé : [AzurAPI](https://azurapi.github.io/)", inline=False)
+                                             "2. API utilisÃ© : [AzurAPI](https://azurapi.github.io/)", inline=False)
         await message.channel.send(file=thumb, embed=embed)
     await bot.process_commands(message)
 
@@ -86,49 +93,101 @@ async def help(ctx, options=""):
     await helpCorner.help(ctx, options)
 
 
-@bot.command(name="dbshipset")
-@commands.has_role("Bot Master")
-async def dbShipset(message):
-    await dbConnect.dbshiplink(message);
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
-@bot.command(name="dbskillset")
-@commands.has_role("Bot Master")
-async def dbSkillset(message):
-    await dbConnect.dbskillset(message);
+@bot.command
+async def _ship(ctx, ship):
+    await ship(ctx, ship)
 
+"""
+@slash.slash(name="ship",
+             description="Retourne les informations du wiki pour un personnage", guild_ids=guild_ids, options=[
+        create_option(
+            name="name",
+            description="Entrer le nom du personnage",
+            option_type=3,
+            required=True,
+        )
+    ])
+async def __ship(ctx, name):
+    await ship(ctx, name)
+"""
 
-@bot.command(name="dbshipupdate")
-@commands.has_role("Bot Master")
-async def dbShipupdate(message):
-    await dbConnect.dbshipupdate(message);
-
-
-@bot.command(name="ship")
-async def ship(ctx, ship1=None, ship2=None, ship3=None, ship4=None):
+async def ship(ctx, ship):
     try:
-        if ship1 != None:
-            await shipInfo.info(ctx, ship1, ship2, ship3, ship4, bot, False)
-        else:
-            await ctx.send("Format: n!ship <Nom> (Exemple: n!ship Prinz Eugen)")
+        await shipInfo.info(ctx, ship, bot)
     except:
         await ctx.send("<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
 
 
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+"""
+@slash.slash(name="skin",
+             description="Affiche les skin d'un personnage", guild_ids=guild_ids, options=[
+        create_option(
+            name="name",
+            description="Entrer le nom du personnage",
+            option_type=3,
+            required=True,
+        )
+    ])
+async def __skin(ctx, name):
+    await _skin(ctx, name)
+"""
 @bot.command(name="skin")
 async def skin(ctx, ship):
+    await _skin(ctx,ship)
+
+
+async def _skin(ctx, ship):
     try:
         await shipSkin.getSkin(ctx, ship, bot)
     except:
         await ctx.send("<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
 
 
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+"""
+@slash.slash(name="stat",
+             description="Affiche les stats d'un personnage", guild_ids=guild_ids, options=[
+        create_option(
+            name="name",
+            description="Entrer le nom du personnage",
+            option_type=3,
+            required=True,
+        ),
+        create_option(
+            name="stat_type",
+            description="Quel type de stat ?",
+            option_type=3,
+            required=True,
+            choices=[
+                create_choice(name="Base",value="baseStats"),
+                create_choice(name="Level 100", value="100"),
+                create_choice(name="Level 120", value="120"),
+                create_choice(name="Level 100 Retrofit", value="100r"),
+                create_choice(name="Level 120 Retrofit", value="120r"),
+            ]
+        )
+    ])
+async def stat(ctx, name, stat_type):
+    await _stat(ctx, name, stat_type)
+"""
+
 @bot.command(name="stat")
-async def skin(ctx, ship, level="baseStats"):
+async def stat(ctx, ship, level="baseStats"):
+    await _stat(ctx, ship, level)
+
+
+async def _stat(ctx, ship, level="baseStats"):
     await shipStat.getStats(ctx, ship, level)
 
 
-@bot.command(name="id")
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+"""@bot.command(name="id")
 async def idAdd(ctx, method="x", pseudo="x", id="x", server="x"):
     if "add" in method:
         if len(pseudo) == 1 or len(id) == 1 or len(server) == 1:
@@ -142,12 +201,17 @@ async def idAdd(ctx, method="x", pseudo="x", id="x", server="x"):
         await al_id.idList(ctx, bot)
     else:
         await ctx.send(embed=discord.Embed(
-            description="**Utilisation possible** :\nn!id list : renvoie la liste d'id enregistrée\nn!id add @Pseudo 'ID' 'SERVEUR' : enregistre une nouvelle id"))
+            description="**Utilisation possible** :\nn!id list : renvoie la liste d'id enregistrÃ©e\nn!id add @Pseudo 'ID' 'SERVEUR' : enregistre une nouvelle id"))"""
+
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 @bot.command(name="search")
 async def danbooru_search(ctx, character, number=1):
     await Danbooru.search_picture(ctx, character, number)
+
+
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 @bot.command(name="send")
@@ -157,8 +221,23 @@ async def sayBot(ctx, channelId, msg):
     await discord.Message.delete(ctx.message)
 
 
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+"""
+@slash.slash(name="build", description="Retourne une liste des personnages obtenable à  un temps donné",
+             guild_ids=guild_ids, options=[
+        create_option(name="timer", description="Format: HH:MM:SS, pour voir tout les temps de construction disponible, écrivez list", option_type=3, required=False)
+    ])
+async def __build(ctx, timer=None):
+    await _build(ctx, timer)
+"""
+
 @bot.command(name="build")
 async def build(ctx, arg=None):
+    await _build(ctx, arg)
+
+
+async def _build(ctx, arg=None):
     if arg != None:
         if arg == "list":
             await buildTime.timeList(ctx, bot)
@@ -170,63 +249,170 @@ async def build(ctx, arg=None):
         await ctx.send("Format: n!build <Timer> (Exemple: n!build 01:25:00)")
 
 
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+
 @bot.command(name="skill")
-async def skill(ctx, *arg):
+async def skill(ctx, arg):
+    await skill(ctx, arg)
+
+
+async def _skill(ctx, arg):
     if arg != ():
         await skillInfo.getSkill(ctx, arg)
     else:
         await ctx.send("Format: n!skill <Nom> (Exemple: n!skill Cleveland)")
 
 
-@bot.command(name="test")
-async def test(ctx, arg1=None):
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+
+@bot.command
+async def test(ctx, arg1):
+    await _test(ctx, arg1)
+
+
+async def _test(ctx, arg1):
     try:
         await testC.testfield(ctx, arg1)
     except:
         await ctx.send("<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
 
 
-
-@bot.command(name="shiplist")
-@commands.has_role('Admirals')
-async def updatelist(ctx):
-    dao = DAO()
-    dao.select("ship", ["Name"])
-    nameList = [item[0].lower() for item in dao.cursor.fetchall()]
-    nameSet = set(nameList)
-    with open('../json/shipList.json', 'w', encoding='utf8') as f:
-        outlist = json.dumps(list(nameSet))
-        f.write(outlist)
-    await ctx.send("Liste mise à jour !")
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 @bot.command(name="fbi")
-@commands.has_role('Admirals')
+@commands.has_any_role('Admirals', "Police d'Images")
 async def fbi(ctx, *arg):
-    with open("../json/forbiddenCharacter.json", 'r') as f:
-        data = f.read()
-    datajson = json.loads(data)
-    ship = ""
-    for a in arg:
-        ship += a + " "
-    datajson["forbiddenChar"].append(ship[:-1])
-    with open("../json/forbiddenCharacter.json", 'w') as out:
-        json.dump(datajson, out)
-    await ctx.send("Ajouté !")
+    try:
+        file = "../json/forbiddenCharacter.json"
+        datajson = json.load(open(file))
+        ship = []
+        check_done = False
+        for a in arg:
+            ship.append(a)
+        print(datajson["forbiddenChar"])
+        for s in ship:
+            if s in datajson["forbiddenChar"]:
+                await ctx.send("Chibre")
+                check_done = True
+        if not check_done:
+            for name in ship:
+                datajson["forbiddenChar"].append(name)
+            with open("../json/forbiddenCharacter.json", 'w') as out:
+                json.dump(datajson, out)
+            await ctx.send("AjoutÃ© !")
+    except:
+        print(traceback.format_exc())
 
+
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+"""
+@slash.subcommand(base="sub", name="list", description="Affiche ta liste de personnage suivi", guild_ids=guild_ids)
+async def __sub_list(ctx):
+    await sub(ctx, "list", None)
+
+
+@slash.subcommand(base="sub", name="add", description="Ajouter un/des personnages à ta liste de suivi",
+                  guild_ids=guild_ids, options=[
+        create_option(name="names",
+                      description="Ajouter une virgule entre chaque personnage",
+                      option_type=3, required=True)
+    ])
+async def __sub_add(ctx, names):
+    if "," in names:
+        names = names.split(",")
+        await sub(ctx, "add", names)
+    else:
+        list_name = []
+        list_name.append(names)
+        await sub(ctx, "add", list_name)
+
+
+@slash.subcommand(base="sub", name="remove", description="Supprime un/des personnage de ta liste de suivi",
+                  guild_ids=guild_ids, options=[create_option(name="names",
+                                                              description="Ajouter une virgule entre chaque personnage",
+                                                              option_type=3, required=True)])
+async def __sub_remove(ctx, names):
+    if "," in names:
+        names=names.split(",")
+        await sub(ctx, "remove", name)
+    else:
+        list_name=[]
+        list_name.append(names)
+        await sub(ctx, "remove", list_name)
+
+
+
+@slash.subcommand(base="sub", name="nsfw",
+                  description="Choisir si vous voulez être ping lors de l'apparition d'une image dans le salon nsfw",
+                  guild_ids=guild_ids,
+                  options=[create_option(name="choice", description="Votre choix",
+                                         option_type=3, required=True,
+                                         choices=[
+                                             create_choice(name="Activer les notifications dans le salon NSFW",
+                                                           value="y"),
+                                             create_choice(name="Desactiver les notifications dans le salon NSFW",
+                                                           value="n")
+                                         ])])
+async def __sub_nsfw(ctx, choice):
+    await sub(ctx, "nsfw", choice)
+
+
+@slash.subcommand(base="sub", name="purge", description="Vide entièrement ta liste de personnage suivi",
+                  guild_ids=guild_ids, )
+async def __sub_purge(ctx):
+    await sub(ctx, "purge", None)
+
+
+@slash.subcommand(base="sub", name="search",
+                  description="Retourne la liste des personnes qui suivent le personnage demandé",
+                  guild_ids=guild_ids, options=[create_option(name="name",
+                                                              description="Un seul personnage a la fois",
+                                                              option_type=3, required=True)])
+async def __sub_search(ctx, name):
+    list_name=[]
+    list_name.append(name)
+    await sub(ctx, "search", list_name)
+"""
 
 @bot.command(name="sub")
-async def sub(ctx, type, *arg):
+async def _sub(ctx, type, *arg):
+    try:
+        arg=reconstruct_string(arg)
+        await sub(ctx, type, arg)
+    except:
+        await ctx.send("<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
+
+
+async def sub(ctx, type, arg):
     try:
         await Booru.sub(ctx, type, arg)
     except:
         await ctx.send("<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
 
+def reconstruct_string(arg):
+    construct = []
+    b = ""
+    for a in arg:
+        if not "," in a:
+            b += a + " "
+        else:
+            b += a.replace(",", "")
+            construct.append(b.strip())
+            b = ""
+    construct.append(b.strip())
+    return construct
 
-@updatelist.error
-@test.error
-@dbSkillset.error
-@dbShipset.error
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+
+@bot.event
+async def on_slash_command_error(ctx, err):
+    print(err)
+
+
 async def error(ctx, error):
     if isinstance(error, commands.MissingRole):
         await ctx.send("Tu n'as pas les droits !")
@@ -241,23 +427,22 @@ async def on_command_error(ctx, error):
 
 @tasks.loop(seconds=20)
 async def booru():
-    sleep_counter=1
+    sleep_counter = 1
     try:
         await Danbooru.post(bot.get_channel(668493142349316106), bot.get_channel(668428634201260042),
                             bot.get_channel(739145500560982034), bot)
     except pybooru.exceptions.PybooruHTTPError:
-        time.sleep(60*sleep_counter)
+        time.sleep(60 * sleep_counter)
         booru.restart()
-        sleep_counter+=1
+        sleep_counter += 1
     except:
         await bot.get_channel(534084645109628938).send(
-                "<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
-
+            "<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
 
 
 @booru.before_loop
 async def before_booru():
-    print("Début de boucle")
+    print("DÃ©but de boucle")
     await bot.wait_until_ready()
 
 
@@ -273,4 +458,4 @@ async def check(ctx, state=None):
 
 """"***************************************RUN***************************************"""
 
-bot.run(c.get_token(1))
+bot.run(c.get_token(2))

@@ -76,28 +76,28 @@ class MyStreamListener(tweepy.StreamListener):
             embed["color"] = 15263976
         elif status.user.id == "864400939125415936":
             embed["color"] = 16777215
-
-        if 'media' in status.extended_tweet["entities"]:
-            nb = 0
-            for media in status.extended_tweet["entities"]["media"]:
-                print(media)
-                print(media["media_url_https"])
-                if nb < 1:
-                    embed["image"] = {
-                        "url": media["media_url_https"]
-                    }
+        if status.extended_tweet:
+            if 'media' in status.extended_tweet["entities"]:
+                nb = 0
+                for media in status.extended_tweet["entities"]["media"]:
+                    print(media)
                     print(media["media_url_https"])
-                else:
-                    data["embeds"].append({
-                        "url": "https://twitter.com",
-                        "image": {
+                    if nb < 1:
+                        embed["image"] = {
                             "url": media["media_url_https"]
                         }
-                    })
-                nb += 1
-            data["embeds"].insert(0, embed)
-        else:
-            data["embeds"].append(embed)
+                        print(media["media_url_https"])
+                    else:
+                        data["embeds"].append({
+                            "url": "https://twitter.com",
+                            "image": {
+                                "url": media["media_url_https"]
+                            }
+                        })
+                    nb += 1
+                data["embeds"].insert(0, embed)
+            else:
+                data["embeds"].append(embed)
         result = requests.post(url, data=json.dumps(data), headers={"Content-Type": "application/json"})
 
         try:
@@ -131,4 +131,4 @@ def checkTweet(loop):
             time.sleep(60 * counter)
             counter += 1
             print("Twitter stream has restarted")
-            pass
+            continue

@@ -5,13 +5,10 @@ import difflib
 import json
 
 async def getSkill(ctx,ship):
-    shipName = ""
-    for s in ship:
-        shipName += s + " "
     with open('../json/shipList.json', 'r', encoding='utf8') as input:
         data = input.read()
     nameList = json.loads(data)
-    shipName = shipName.rstrip().replace(' ', '_').title()
+    shipName = ship.rstrip().replace(' ', '_').title()
     if not shipName.lower() in nameList:
         simili = difflib.get_close_matches(shipName, set(nameList))
         embedName = discord.Embed()

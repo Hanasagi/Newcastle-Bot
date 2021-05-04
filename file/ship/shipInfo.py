@@ -11,17 +11,12 @@ from azurlane.azurapi import AzurAPI
 api = AzurAPI()
 
 
-async def info(ctx, ship1, ship2=None, ship3=None, ship4=None, bot=None, isKai=False):
+async def info(ctx, ship, bot):
     api.updater.update()
-    shipN = ship1
-    if ship2 != None:
-        shipN += " " + ship2
-        if ship3 != None:
-            shipN += " " + ship3
-            if ship4 != None:
-                shipN += " " + ship4
+    isKai = False
+    ship = ship.lower()
 
-    shipN = shipN.replace(' ', '_').title()
+    shipN = ship.replace(' ', '_').title()
     info = api.getShip(ship=shipN)
     shipName = info.get("names").get("en")
     shipClasse = info.get("class")
@@ -34,25 +29,16 @@ async def info(ctx, ship1, ship2=None, ship3=None, ship4=None, bot=None, isKai=F
     artistPixiv = info.get("misc").get("pixiv").get('url')
     shipClasseURL = "https://azurlane.koumakan.jp" + shipClasse.replace(" ", "_")
     shipVA = info.get("misc").get("voice").get("name")
-    shipVAurl=info.get("misc").get("voice").get("url")
-    print(type(shipRarity))
-    print(type(shipClasse))
-    print(type(shipType))
-    print(type(shipBuild))
-    print(type(shipNation))
-    print(shipArtist)
-    print(artistPixiv)
-    print(type(shipClasseURL))
-    print(shipVA)
+    shipVAurl = info.get("misc").get("voice").get("url")
+
     if info.get("retrofit"):
         isKai = True
         shipNameKai = shipName + " Retrofit"
         shipImgKai = info.get("skins")[1].get("image")
-        shipTypeKai = api.getShip(ship=shipN).get("retrofit_hullType")
-
+        shipTypeKai = api.getShip(ship=shipN).get("retrofitHullType")
     embedBase = discord.Embed(title=shipName,
                               description='Rarity : **' + shipRarity + "**\n Nationality : **" + shipNation + "** Type : **" + shipType +
-                                          "**\n Class : **[" + shipClasse + "](" + shipClasseURL + ")**\n Artist : **[" + shipArtist + "](" + artistPixiv + ")** Construction : **" + shipBuild + "**"+ "**\nVoice Actor : **[" + shipVA+"]("+shipVAurl+")**")
+                                          "**\n Class : **[" + shipClasse + "](" + shipClasseURL + ")**\n Artist : **[" + shipArtist + "](" + artistPixiv + ")** Construction : **" + shipBuild + "**\nVoice Actor : **[" + shipVA + "](" + shipVAurl + ")**")
     embedBase.set_image(url=shipImg)
     embedBase.set_thumbnail(url=info.get("thumbnail"))
 
@@ -60,7 +46,7 @@ async def info(ctx, ship1, ship2=None, ship3=None, ship4=None, bot=None, isKai=F
     if isKai:
         embedKai = discord.Embed(title=shipNameKai,
                                  description='Rareté : **' + shipRarity + "**\n Nationalité : **" + shipNation + "** Type : **" + shipTypeKai +
-                                             "**\n Classe : **[" + shipClasse + "](" + shipClasseURL + ")**\n Artiste : **[" + shipArtist + "](" + artistPixiv + ")** Construction : **" + shipBuild + "**"+ "**\nVoice Actor : **[" + shipVA+"]("+shipVAurl+")**")
+                                             "**\n Classe : **[" + shipClasse + "](" + shipClasseURL + ")**\n Artiste : **[" + shipArtist + "](" + artistPixiv + ")** Construction : **" + shipBuild + "**" + "**\nVoice Actor : **[" + shipVA + "](" + shipVAurl + ")**")
         embedKai.set_image(url=shipImgKai)
         embedKai.set_thumbnail(url=info.get("thumbnail"))
         embedList.append(embedKai)
