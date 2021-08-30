@@ -3,115 +3,119 @@ import discord
 import os
 
 
-async def sub(ctx, type, arg):
+async def sub(ctx, type, arg, db):
     alreadypresent = False
-    with open("../json/subBooru.json", "r") as input:
-        data = input.read()
-    data_list = json.loads(data)
+    dbName = "danbooru_list_" + str(ctx.guild.id)
 
-    print(arg)
+    db.select(dbName, ["*"], "name", str(ctx.author.id))
+    userlist = db.cursor.fetchall()
+    print(userlist)
+    if userlist != []:
+        list = json.loads(userlist[0][2])
+
     if "add" in type:
-        [print(a) for a in arg]
         charlistpresent = ""
-        for data in data_list['data']:
-            if str(ctx.author.id) in str(data["name"]):
-                alreadypresent = True
-                for a in arg:
-                    a=a.strip()
-                    if not a.lower() in data["charlist"]:
-                        data["charlist"].append(a.lower().strip())
+        if userlist != []:
+            alreadypresent = True
+            for a in arg:
+                a = a.strip()
+                if not a.lower() == "":
+                    if not a.lower() in list:
+                        list.append(a.lower().strip())
                     else:
                         charlistpresent += " " + a.title() + ","
+            db.update(dbName, ["charlist"], ["'" + json.dumps(list) + "'"], "name", str(ctx.author.id))
         if len(charlistpresent) > 1:
-            await ctx.send(charlistpresent[:-1] + " déjà présent")
+            await ctx.send(
+                charlistpresent[:-1] + " seems to be already on your list. Is your memory really that short ?")
         if not alreadypresent:
             charlist = []
             for a in arg:
                 charlist.append(a.lower().strip())
-            data_list['data'].append({"name": ctx.author.id, "nsfw": "yes", "charlist": charlist})
+            db.insert(dbName, ["name", "nsfw", "charlist"], [str(ctx.author.id), "yes", json.dumps(charlist)])
 
-        with open("../json/subBooru.json", "w") as out:
-            json.dump(data_list, out)
         if len(charlistpresent) < 1:
-            await ctx.send("Ajouté!")
+            await ctx.send(
+                "I added them all to your list. I know they are all beautiful women, but please don't loose yourself along the way.")
+
     elif "remove" in type:
         notpresent = False
         present = False
         charpresent = ""
         charnotpresent = ""
-        for data in data_list['data']:
-            if str(ctx.author.id) in str(data["name"]):
-                for a in arg:
-                    a=a.strip()
-                    if a.lower() in data["charlist"]:
-                        present = True
-                        charpresent += a.title() + ","
-                        if len(data["charlist"]) <= 1:
-                            data_list['data'].remove(data)
-                        else:
-                            data["charlist"].remove(a.lower())
+        if userlist != []:
+            for a in arg:
+                a = a.strip()
+                if a.lower() in list:
+                    present = True
+                    charpresent += a.title() + ","
+                    if len(list) <= 1:
+                        db.delete(dbName, "name", str(ctx.author.id))
                     else:
-                        notpresent = True
-                        charnotpresent += " " + a.title() + ","
+                        list.remove(a.lower())
+                else:
+                    notpresent = True
+                    charnotpresent += " " + a.title() + ","
         if present:
-            await ctx.send(charpresent[:-1] + " supprimé de ta liste")
-        with open("../json/subBooru.json", "w") as out:
-            json.dump(data_list, out)
+            await ctx.send("I removed them from your list. May I know the reason ?")
+        db.update(dbName, ["charlist"], ["'" + json.dumps(list) + "'"], "name", str(ctx.author.id))
 
         if notpresent:
-            await ctx.send("Personnage introuvable :" + charnotpresent[:-1])
+            await ctx.send("These one were not on your list : " + charnotpresent[
+                                                                  :-1] + ". How come you made such a simple mistake, perhaps you need to get some sleep ?")
+
     elif "list" in type:
         listispresent = False
         charlist = ''
-        for data in data_list['data']:
-            if str(ctx.author.id) in str(data["name"]):
-                listispresent = True
-                for char in data["charlist"]:
-                    charlist += " " + char.title() + ","
+        if userlist != []:
+            listispresent = True
+            for char in list:
+                charlist += " " + char.title() + ","
 
         if listispresent:
             try:
-                await ctx.author.send("Voici ta liste :\n" + charlist[:-1])
-                await ctx.message.add_reaction("ðŸ†—")
+                await ctx.author.send("Here is your list, commander :\n" + charlist[:-1])
             except discord.errors.Forbidden:
-                await ctx.send("Voici ta liste :\n" + charlist[:-1])
+                await ctx.send("Here is your list, commander :\n" + charlist[:-1])
+
         else:
-            await ctx.send("Tu n'as aucun suivi !")
+            await ctx.send("Your list is empty. Want me to help you create one ?")
+
     elif "nsfw" in type:
-        for data in data_list['data']:
-            if str(ctx.author.id) in str(data["name"]):
-                if "y" in arg:
-                    data["nsfw"] = "yes"
-                elif "n" in arg:
-                    data["nsfw"] = "no"
-        if "y" in arg:
-            await ctx.send(
-                "Tu seras maintenant prévenu lors d'une apparition d'un personnage de ta liste dans #nsfw-al-danbooru")
-        elif "n" in arg:
-            await ctx.send(
-                "Tu ne seras maintenant plus prévenu lors d'une apparition d'un personnage de ta liste dans #nsfw-al-danbooru")
+        if userlist != []:
+            if "y" in arg:
+                db.update(dbName, ["nsfw"], ["yes"], "name", str(ctx.author.id))
+            elif "n" in arg:
+                db.update(dbName, ["nsfw"], ["no"], "name", str(ctx.author.id))
+    if "y" in arg:
+        await ctx.send(
+            "You will now be notified when someone from your list appear in #nsfw-al-danbooru")
+    elif "n" in arg:
+        await ctx.send(
+            "You will now never be notified when someone from your list appear in #nsfw-al-danbooru")
     elif "purge" in type:
-        for data in data_list['data']:
-            if str(ctx.author.id) in str(data["name"]):
-                data_list['data'].remove(data)
-                break
-        await ctx.send("Liste supprimé !")
+        if userlist != []:
+            db.delete(dbName, "name", str(ctx.author.id))
+
+        await ctx.send("I throw your list in the bin. Make sure to not regret that later.")
     elif "search" in type:
         if len(arg) > 1:
-            await ctx.send("Un personnage a la fois !")
+            await ctx.send("Please request one character at a time, i need time to process your request.")
             return
         followList = ""
-        for data in data_list['data']:
+        db.select(dbName, ["charlist"], "charlist", "JSON_CONTAINS('charlist," + str(arg) + ",$)")
+        print(db.cursor.fetchall())
+        """for data in data_list['data']:
             for a in arg:
                 if a.lower() in data["charlist"]:
                     followList += " " + "<@!" + str(data["name"]) + ">,"
         embed = discord.Embed()
         if (len(followList) < 1):
-            embed.description = "Personne ne suit ce personnage"
+            embed.description = "She is on nobody list. Maybe you could consider adding her to yours ?"
         else:
-            embed.title = "Suivi par : "
+            embed.title = "She is on the list of these people : "
             embed.description = followList[:-1]
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed)"""
     elif "clear" in type:
         role = discord.utils.find(lambda r: r.name == 'Admirals', ctx.message.guild.roles)
         if role in ctx.author.roles:
@@ -120,6 +124,4 @@ async def sub(ctx, type, arg):
                     data_list['data'].remove(data)
             await ctx.send("Purge fini")
         else:
-            print("Tu n'as pas les droits.")
-    with open("../json/subBooru.json", "w") as out:
-        json.dump(data_list, out)
+            print("You do not have the right for that. Maybe try asking the higher ups for permissions ?")

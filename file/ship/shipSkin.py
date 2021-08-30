@@ -39,26 +39,22 @@ async def getSkin(ctx, ship, bot=None):
                 res = await action(embed=embedList[index])
                 if res is not None:
                     msg = res
-                l = index != 0
-                r = index != len(embedList) - 1
+                l = index >= 0
+                r = index != len(embedList)
                 await msg.add_reaction(left)
                 await msg.add_reaction(right)
                 react, user = await bot.wait_for('reaction_add', check=predicate(msg, l, r), timeout=20)
 
                 if react.emoji == left:
-                    if index < 1:
-                        print(0)
-                        index = len(embedList) - 1
-                    else:
+                    if index > 0:
                         index -= 1
+                    elif index == 0:
+                        index = len(embedList) -1
                 elif react.emoji == right:
-
-                    if index == len(embedList) - 1:
-                        print("ntm")
+                    if index < len(embedList) - 1:
+                        index += 1
+                    elif index == len(embedList) - 1:
                         index = 0
-                    index += 1
-                    print(len(embedList) - 1)
-                    print(index)
                 action = msg.edit
             except asyncio.TimeoutError:
                 await msg.clear_reactions()

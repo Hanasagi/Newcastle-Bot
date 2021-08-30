@@ -1,4 +1,4 @@
-from DAO import DAO
+from CRUD import CRUD
 import discord
 import asyncio
 import difflib
@@ -21,7 +21,7 @@ async def getSkill(ctx,ship):
         else:
             await ctx.send("Format: n!build <Timer> (Exemple: n!build 01:25:00)")
     else:
-        dao = DAO()
+        dao = CRUD()
         dao.select("skill",["Skill1Name","Skill1Desc","Skill2Name","Skill2Desc","Skill3Name","Skill3Desc","Skill4Name","Skill4Desc","Skill5Name","Skill5Desc"],"Name",shipName)
         result = dao.cursor.fetchall()
         for row in result:

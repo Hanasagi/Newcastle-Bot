@@ -1,13 +1,13 @@
-from DAO import DAO
+from CRUD import CRUD
 import discord
 import asyncio
 import re
 
 async def timeList(ctx,bot):
-    dao = DAO()
+    crud = CRUD()
     dao.select("ship",["BuildTime"])
     regexNum=re.compile(r"[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?")
-    timeList = [item[0] for item in dao.cursor.fetchall() if re.match(r"[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?",str(item[0]))]
+    timeList = [item[0] for item in crud.cursor.fetchall() if re.match(r"[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?",str(item[0]))]
     time = set(timeList)
     lt = list(time)
     lt.sort()
@@ -66,9 +66,9 @@ async def timeList(ctx,bot):
             break
 
 async def buildTimer(ctx,arg,bot):
-    dao = DAO()
-    dao.select("ship", ["Name"],"BuildTime",arg)
-    nameList = [item[0] for item in dao.cursor.fetchall()]
+    crud = CRUD()
+    crud.select("ship", ["Name"],"BuildTime",arg)
+    nameList = [item[0] for item in crud.cursor.fetchall()]
     embed = discord.Embed(title="Temps de construction : "+arg,description="")
 
     if(len(nameList)>10):

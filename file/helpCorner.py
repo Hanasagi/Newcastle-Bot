@@ -34,12 +34,12 @@ json_help = {
         },
         {
             "name": "stat",
-            "desc":  discord.Embed(title='Commande : Stat',
-                                   description="Cette commander permet d'afficher les différentes statistiques d'un personnage.\n"
-                                   "Vous pouvez afficher les statistiques de base, de niveau 100 et 120, et retrofit si disponible."
-                                    "\n**/!\\\** Si vous voulez savoir les statistiques d'un personnage avec un nom composé (exemple, Prince of Wales), mettez bien le nom entre guillemets, sinon ça ne marchera pas."
-                                   "\n\nUtilisation :\n\nStat basique : **n!stat [nom]**\nStat level 100/120 : **n!stat [nom] [level]**\nStat level 100/120 Retrofit : **n!stat [nom] [level]r**\n\nExemple :"),
-            "image":"https://puu.sh/G2PMq/359121bf6d.png"
+            "desc": discord.Embed(title='Commande : Stat',
+                                  description="Cette commander permet d'afficher les différentes statistiques d'un personnage.\n"
+                                              "Vous pouvez afficher les statistiques de base, de niveau 100 et 120, et retrofit si disponible."
+                                              "\n**/!\\\** Si vous voulez savoir les statistiques d'un personnage avec un nom composé (exemple, Prince of Wales), mettez bien le nom entre guillemets, sinon ça ne marchera pas."
+                                              "\n\nUtilisation :\n\nStat basique : **n!stat [nom]**\nStat level 100/120 : **n!stat [nom] [level]**\nStat level 100/120 Retrofit : **n!stat [nom] [level]r**\n\nExemple :"),
+            "image": "https://puu.sh/G2PMq/359121bf6d.png"
         }
     ]
 }

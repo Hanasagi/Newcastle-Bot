@@ -5,7 +5,6 @@ from azurlane.azurapi import AzurAPI
 api = AzurAPI()
 
 async def getStats(ctx, ship, level):
-    try:
         desc=""
         regexN=r'^\d\d\d$'
         regexR=r'^\d\d\dr$'
@@ -25,5 +24,3 @@ async def getStats(ctx, ship, level):
         for n in stat:
            embed.add_field(name="**"+n.title()+"**",value=stat.get(n),inline=True)
         await ctx.send(embed=embed)
-    except:
-        await ctx.send("Quelque chose ne va pas [message d'erreur provisoire]")

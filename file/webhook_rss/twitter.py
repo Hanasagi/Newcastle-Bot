@@ -41,12 +41,12 @@ def from_creator(status):
 
 class MyStreamListener(tweepy.StreamListener):
 
-    def __init__(self, loop):
+    def __init__(self, loop,url):
         super(MyStreamListener, self).__init__()
         self.loop = loop
+        self.url= url
 
     async def msg_send_wrapper(self, status):
-        url = c.get_webhook_url()
         data = {}
 
         data["embeds"] = []
@@ -98,7 +98,7 @@ class MyStreamListener(tweepy.StreamListener):
                 data["embeds"].insert(0, embed)
             else:
                 data["embeds"].append(embed)
-        result = requests.post(url, data=json.dumps(data), headers={"Content-Type": "application/json"})
+        result = requests.post(self.url, data=json.dumps(data), headers={"Content-Type": "application/json"})
 
         try:
             result.raise_for_status()
@@ -119,13 +119,13 @@ class MyStreamListener(tweepy.StreamListener):
                 pass
 
 
-def checkTweet(loop):
+def checkTweet(loop,url):
     counter = 1
     print("Twitter stream is running")
-    myStream = tweepy.Stream(auth=api.auth, listener=MyStreamListener(loop=loop), tweet_mode='extended')
+    myStream = tweepy.Stream(auth=api.auth, listener=MyStreamListener(loop=loop,url=url), tweet_mode='extended')
     while True:
         try:
-            myStream.filter(follow=['993682160744738816', '864400939125415936'])
+            myStream.filter(follow=['993682160744738816', '864400939125415936'],stall_warnings=True)
         except:
             print(traceback.format_exc())
             time.sleep(60 * counter)

@@ -7,6 +7,7 @@ import sys
 import random
 import urllib
 from nudenet import NudeClassifier
+
 classifier = NudeClassifier()
 client = Danbooru('danbooru')
 
@@ -18,35 +19,37 @@ cachedStamp = 0
 disable_check = False
 
 
-def loadSubList():
-    file = "../json/subBooru.json"
-    stamp = os.stat(file).st_mtime
+def loadSubList(db,guild_id):
+    db.get_timestamp("newcastle","danbooru_list_"+guild_id)
+    stamp = db.cursor.fetchall()[0]
     global namelist, sublist, nsfwlist, cachedStamp, forbiddenChar
     if cachedStamp is not None:
         if stamp != cachedStamp:
             cachedStamp = stamp
-            data_list = json.load(open(file))
             forbiddenChar = json.load(open("../json/forbiddenCharacter.json", "r"))
             print("Loaded/Reloaded")
             namelist.clear()
             sublist.clear()
             nsfwlist.clear()
-            for data in data_list["data"]:
-                name = data["name"]
-                ship = data["charlist"]
+            db.select("danbooru_list_"+guild_id,["*"])
+            result=db.cursor.fetchall()
+            for data in result:
+                name = data[0]
+                ship = data[2]
                 namelist.append(name)
                 sublist.append(ship)
-                nsfwlist.append(data["nsfw"])
+                nsfwlist.append(data[1])
 
 
 def remove_duplicate_words(s):
     return ' '.join(dict.fromkeys(s.split()))
 
 
-async def post(channel_sfw, channel_nsfw, channel_check, bot):
+async def post(channel_sfw, channel_nsfw, channel_check, db, guild_id, bot):
     try:
-        x = json.load(open("../json/lastId.json"))
-        currentId = int(x["booru"].get("id"))
+        db.select("options",["last_id"],"uid",guild_id)
+        x = db.cursor.fetchall()
+        currentId=int(x[0][0] or 0)
         image = client.post_list(tags="azur_lane", limit=1, page=1)
         for post in image:
             id = post['id']
@@ -56,11 +59,8 @@ async def post(channel_sfw, channel_nsfw, channel_check, bot):
         if not currentId == id:
             if not "banned" in banned_artist and not any(t in tag for t in ["futanari", "bestiality"]) and not "official_art" in post["tag_string_meta"]:
                 currentId = id
-                loadSubList()
-
-                x["booru"]["id"] = currentId
-                with open("../json/lastId.json", "w") as out:
-                    json.dump(x, out)
+                loadSubList(db,guild_id)
+                db.update("options",["last_id"],[str(currentId)],"uid",guild_id)
                 for post in image:
                     try:
                         fileurl = post['large_file_url']
@@ -76,10 +76,10 @@ async def post(channel_sfw, channel_nsfw, channel_check, bot):
                     artist = post['tag_string_artist']
                     rating = post['rating']
                 if not character:
-                    character = "Non renseignÃ©"
+                    character = "Non renseignée"
                     nbChar = 1
                 if not artist:
-                    artist = "Non renseignÃ©"
+                    artist = "Non renseignée"
                 charList = ""
                 nameShip = ""
                 if nbChar > 1:
@@ -119,20 +119,15 @@ async def post(channel_sfw, channel_nsfw, channel_check, bot):
 
                     else:
                         charList = character
-                    if charList != "Non renseignÃ©":
+                    if charList != "Non renseignée":
                         charList = charList.replace('_', ' ')
                         nameShip = remove_duplicate_words(charList.title())
                     else:
-                        nameShip = "Non renseignÃ©"
-                if rating == "e" or rating == "q":
-                    if not any(loli in nameShip for loli in forbiddenChar["forbiddenChar"]):
-                        pass
-                    else:
-                        return
+                        nameShip = "Non renseignée"
                 text = ''
-                name = nameShip if nameShip != "Non renseignÃ©" else "Non renseignÃ©"
+                name = nameShip if nameShip != "Non renseignée" else "Non renseignée"
                 artistx = "[" + artist.replace("_",
-                                               " ").title() + "](https://danbooru.donmai.us/posts?tags=" + artist + ")" if artist != "Non renseignÃ©" else "Non renseignÃ©"
+                                               " ").title() + "](https://danbooru.donmai.us/posts?tags=" + artist + ")" if artist != "Non renseignée" else "Non renseignée"
                 if "webm" in fileurl:
                     text += "\nArtiste : " + artistx + "\n" + fileurl
                 else:
@@ -164,15 +159,24 @@ async def post_content(content, channel, nameShip, rating):
 
 async def check_content_ia(bot, content, channel_check, channel_sfw, channel_nsfw, nameShip, rating):
     r = classifier.classify("../image/danbooru_image.jpg")
-
     if r["../image/danbooru_image.jpg"]["unsafe"]>=0.80:
+        if rating == "e" or rating == "q":
+            if not any(loli in nameShip for loli in forbiddenChar["forbiddenChar"]):
+                pass
+            else:
+                return
         await post_content(content,channel_nsfw,nameShip,"e")
     elif r["../image/danbooru_image.jpg"]["safe"]>=0.80:
         if rating=="s":
-            await post_content(content,channel_nsfw,nameShip,"s")
+            await post_content(content,channel_sfw,nameShip,"s")
         else:
-            await post_content(content, channel_sfw, nameShip, "e")
+            await post_content(content, channel_nsfw, nameShip, "e")
     elif r["../image/danbooru_image.jpg"]["unsafe"]<=0.80 and r["../image/danbooru_image.jpg"]["safe"] >= 0.30:
+        if rating == "e" or rating == "q":
+            if not any(loli in nameShip for loli in forbiddenChar["forbiddenChar"]):
+                pass
+            else:
+                return
         await check_content(bot, content, channel_check, channel_sfw, channel_nsfw, nameShip, rating)
     elif r["../image/danbooru_image.jpg"]["safe"]<=0.80 and r["../image/danbooru_image.jpg"]["unsafe"] >= 0.30:
         await check_content(bot, content, channel_check, channel_sfw, channel_nsfw, nameShip, rating)
@@ -239,12 +243,15 @@ async def check(ctx, state):
     global disable_check
     if state == "n":
         disable_check = True
-        await ctx.send("Checking dÃ©sactivÃ©")
+        if ctx!="":
+            await ctx.send("Checking désactivée")
     elif state == "y":
         disable_check = False
-        await ctx.send("Checking activÃ©")
+        if ctx != "":
+            await ctx.send("Checking activée")
     else:
-        await ctx.send(disable_check)
+        if ctx != "":
+            await ctx.send(disable_check)
 
 
 def check_nameList(nameShip, rating):
@@ -276,11 +283,12 @@ async def search_picture(ctx, character, number):
             artist = post['tag_string_artist']
             rating = post['rating']
             id = post["id"]
-            embed = discord.Embed(description="Artiste : [" + artist.replace("_",
+            if(rating=="s"):
+                embed = discord.Embed(description="Artiste : [" + artist.replace("_",
                                                                              " ").title() + "](" + "https://danbooru.donmai.us/posts?tags=" + artist + ")\n[Lien du post](https://danbooru.donmai.us/posts/" + str(
                 id) + ")")
-            embed.set_image(url=fileurl)
-            await ctx.send(embed=embed)
+                embed.set_image(url=fileurl)
+                await ctx.send(embed=embed)
 
     else:
-        await ctx.send("Maximum 10 images.")
+        await ctx.send("I can't process more than 10 images.")

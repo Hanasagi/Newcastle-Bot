@@ -17,9 +17,10 @@ import random
 import pybooru
 import os
 import requests
-from db import dbConnect
+import mysql.connector
+from mysql.connector import Error
+from mysql.connector import errorcode
 from ship import buildTime
-from db import al_id
 from ship import shipInfo
 from ship import skillInfo
 from ship import shipSkin
@@ -28,7 +29,7 @@ from webhook_rss import sub as Booru
 from webhook_rss import Danbooru
 from webhook_rss import twitter
 # from webhook_rss import twitter
-from DAO import DAO
+from CRUD import CRUD
 from discord.ext import commands, tasks
 from discord_slash import SlashCommand, SlashContext
 from discord_slash.utils.manage_commands import create_option, create_choice, remove_all_commands
@@ -36,16 +37,56 @@ from credentials import Creds
 
 """***************************************VARIABLE***************************************"""
 c = Creds()
-guild_ids = [741227425232453634,531525155537682442]
+guild_ids = [741227425232453634, 531525155537682442]
 bot = commands.Bot(command_prefix=c.get_prefix(2))
 slash = SlashCommand(bot, sync_commands=True)
 bot.remove_command('help')
-
-"""***************************************SIGNAL HANDLING***************************************"""
+db = CRUD()
+#[X][1] = show_news [X][2] = danbooru_feed
+guild_options = []
+task_list=[]
+"""***************************************STUFF***************************************"""
 
 
 def stop_everything(sigNum, frame):
+    db.close()
+    for task in task_list:
+        task.cancel()
     sys.exit(0)
+
+
+async def print_err(ctx):
+    await ctx.send(
+        "Something seems to have gone wrong, those kind of things are unfortunately not my forte, maybe we should ask for help ?")
+    await ctx.send("<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
+
+
+def reconstruct_string(arg):
+    construct = []
+    b = ""
+    if not isinstance(arg, tuple):
+        arg = [arg]
+    for a in arg:
+        if len(arg) > 1:
+            if not "," in a:
+                b += a + " "
+            else:
+                b += a.replace(",", "")
+                construct.append(b.strip())
+                b = ""
+        else:
+            break
+    if len(arg) > 1:
+        construct.append(b.strip())
+    else:
+        if "," in arg[0]:
+            b = arg[0].split(",")
+            for x in b:
+                construct.append(x.strip())
+        else:
+            b += arg[0]
+            construct.append(b.strip())
+    return construct
 
 
 signal.signal(signal.SIGINT, stop_everything)
@@ -57,21 +98,55 @@ signal.signal(signal.SIGINT, stop_everything)
 async def on_ready():
     print('{0} online!'.format(bot.user.name))
     rndChar = random.choice(["Essex", "Sandy", "Jules", "Hammann", "Hipper", "Akashi", "Manjuu"])
-    await bot.change_presence(status=discord.Status.idle, activity=discord.Game("bully " + rndChar))
-    await remove_all_commands(c.get_id(2),c.get_token(2),guild_ids=guild_ids)
-    """thread_twitter_stream = threading.Thread(target=twitter.checkTweet,
-                                             args=(asyncio.get_event_loop(),),
+    await bot.change_presence(status=discord.Status.idle, activity=discord.Game("bully " + rndChar + "| n!help"))
+    for guild in bot.guilds:
+        db.select("options", ["uid","show_news", "danbooru_feed"], "uid", guild.id)
+        guild_options.append(db.cursor.fetchall())
+    for guild in guild_options:
+        print(guild[0][2])
+        if guild[0][1] != 0: #news
+            db.select("options", ["webhook_url"], "uid", guild[0][0])
+            url = db.cursor.fetchall()
+            thread_twitter_stream = threading.Thread(target=twitter.checkTweet,
+                                             args=(asyncio.get_event_loop(),url[0][0]),
                                              daemon=True)
-    thread_twitter_stream.start()
-    booru.start()"""
-
+            thread_twitter_stream.start()
+        if guild[0][2] != 0: #danbooru
+            db.select("options",["sfw_danbooru_channel","nsfw_danbooru_channel","check_channel"],"uid", guild[0][0])
+            result=db.cursor.fetchall()
+            guild_channel=bot.get_guild(int(guild[0][0]))
+            if result[0][2] != "":
+                check = guild_channel.get_channel(int(result[0][2]))
+            else:
+                check=0
+            try:
+                db.select("danbooru_list_"+guild[0][0],["*"])
+            except mysql.connector.errors.ProgrammingError:
+                db.create("danbooru_list_" + guild[0][0], ["name","nsfw","charlist"],["varchar(255)","varchar(3)","json"])
+            task = tasks.loop(seconds=60)(booru)
+            task.start(guild_channel.get_channel(int(result[0][0])),guild_channel.get_channel(int(result[0][1])),check,guild[0][0])
+            task.before_loop(before_booru)
+            task.after_loop(after_booru)
+            task_list.append(task)
+    print(task_list)
 
 @bot.event
 async def on_guild_join(guild):
-    data = json.load(open("../json/guildInfo.json", "r"))
-    data["guild"].append({"id": guild.id})
-    with open("../json/guildInfo.json", "w") as o:
-        json.dump(data, o)
+    db.insert("guild", ["uid", "name", "lang"], [str(guild.id), guild.name, "EN"], )
+    db.insert("options", ["uid", "show_news", "webhook_url","danbooru_feed","news_channel","check_channel","sfw_danbooru_channel","nsfw_danbooru_channel","last_id"], [str(guild.id), 0, "",0,"","","","",""], )
+    db.select("options", ["uid","show_news", "danbooru_feed"], "uid", guild.id)
+    guild_options.append(db.cursor.fetchall())
+    print(guild_options)
+
+@bot.event
+async def on_guild_remove(guild):
+    db.delete("guild", "uid", str(guild.id),)
+    db.delete("options", "uid", str(guild.id),)
+    db.drop("danbooru_list_"+str(guild.id),)
+    for g in guild_options:
+        if str(guild.id) == str(g[0][0]):
+            guild_options.remove(g)
+
 
 
 @bot.event
@@ -80,10 +155,11 @@ async def on_message(message):
         embed = discord.Embed()
         thumb = discord.File("../image/NewcastleIcon.png", filename="thumb.png")
         embed.set_thumbnail(url="attachment://thumb.png")
-        embed.add_field(name="PrÃ©fixe", value=bot.command_prefix, inline=False)
-        embed.add_field(name="CrÃ©ateur", value="@Kurosagi#1904", inline=False)
+        embed.add_field(name="Préfixe", value=bot.command_prefix, inline=False)
+        embed.add_field(name="Créateur", value="@Kurosagi#1904", inline=False)
         embed.add_field(name="Divers", value="**1. n!help** pour obtenir de l'aide\n"
-                                             "2. API utilisÃ© : [AzurAPI](https://azurapi.github.io/)", inline=False)
+                                             "2. API utilisé : [AzurAPI](https://azurapi.github.io/)", inline=False)
+        await message.channel.send("Here is my business card, let me know if you got work for me.")
         await message.channel.send(file=thumb, embed=embed)
     await bot.process_commands(message)
 
@@ -96,9 +172,13 @@ async def help(ctx, options=""):
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
-@bot.command
-async def _ship(ctx, ship):
-    await ship(ctx, ship)
+@bot.command(name="ship")
+async def _ship(ctx, *shipName):
+    try:
+        await ship(ctx, shipName)
+    except:
+        await print_err(ctx)
+
 
 """
 @slash.slash(name="ship",
@@ -114,11 +194,14 @@ async def __ship(ctx, name):
     await ship(ctx, name)
 """
 
+
 async def ship(ctx, ship):
     try:
-        await shipInfo.info(ctx, ship, bot)
+        ship = reconstruct_string(ship)
+        await ctx.send("Please review these documents properly, Commander.")
+        await shipInfo.info(ctx, ship[0], bot)
     except:
-        await ctx.send("<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
+        await print_err(ctx)
 
 
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -135,16 +218,21 @@ async def ship(ctx, ship):
 async def __skin(ctx, name):
     await _skin(ctx, name)
 """
+
+
 @bot.command(name="skin")
 async def skin(ctx, ship):
-    await _skin(ctx,ship)
+    await _skin(ctx, ship)
 
 
 async def _skin(ctx, ship):
     try:
-        await shipSkin.getSkin(ctx, ship, bot)
+        ship = reconstruct_string(ship)
+        await ctx.send(
+            "Don't go spending all our money on outfits. I'd appreciate if you did buy me one, nevertheless.")
+        await shipSkin.getSkin(ctx, ship[0], bot)
     except:
-        await ctx.send("<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
+        await print_err(ctx)
 
 
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -176,13 +264,19 @@ async def stat(ctx, name, stat_type):
     await _stat(ctx, name, stat_type)
 """
 
+
 @bot.command(name="stat")
 async def stat(ctx, ship, level="baseStats"):
     await _stat(ctx, ship, level)
 
 
 async def _stat(ctx, ship, level="baseStats"):
-    await shipStat.getStats(ctx, ship, level)
+    try:
+        await ctx.send(
+            "Please don't pay too much attention to these, statistics doesn't embody how we perform on the battlefield.")
+        await shipStat.getStats(ctx, ship, level)
+    except:
+        await print_err(ctx)
 
 
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -232,6 +326,7 @@ async def __build(ctx, timer=None):
     await _build(ctx, timer)
 """
 
+
 @bot.command(name="build")
 async def build(ctx, arg=None):
     await _build(ctx, arg)
@@ -239,14 +334,18 @@ async def build(ctx, arg=None):
 
 async def _build(ctx, arg=None):
     if arg != None:
+        await ctx.send(
+            "I really hope you're planning to build my sisters in the near future. I really do want to live a laid back life in their company.")
         if arg == "list":
             await buildTime.timeList(ctx, bot)
         elif re.match(r"^\d\d\:\d\d\:\d\d$", arg):
             await buildTime.buildTimer(ctx, arg, bot)
         else:
-            await ctx.send("Format: n!build <Timer> (Exemple: n!build 01:25:00)")
+            await ctx.send(
+                "The guide seems to tell you to do it that way : n!build <Timer> (Exemple: n!build 01:25:00). Please try again. ")
     else:
-        await ctx.send("Format: n!build <Timer> (Exemple: n!build 01:25:00)")
+        await ctx.send(
+            "The guide seems to tell you to do it that way : n!build <Timer> (Exemple: n!build 01:25:00). Please try again. ")
 
 
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -259,22 +358,28 @@ async def skill(ctx, arg):
 
 async def _skill(ctx, arg):
     if arg != ():
+        await ctx.send(
+            "It is a good thing you are reviewing yor fleet that carefully. Maybe with you we could return to peace sooner that expected..")
         await skillInfo.getSkill(ctx, arg)
     else:
-        await ctx.send("Format: n!skill <Nom> (Exemple: n!skill Cleveland)")
+        await ctx.send(
+            "The guide seems to tell you to do it that way : n!skill <Nom> (Example: n!skill Cleveland). Please try again.")
 
 
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
-@bot.command
-async def test(ctx, arg1):
-    await _test(ctx, arg1)
-
-
-async def _test(ctx, arg1):
+@bot.command(name="test")
+async def test(ctx, arg1=""):
     try:
-        await testC.testfield(ctx, arg1)
+        await _test(ctx, arg1)
+    except:
+        print(traceback.format_exc())
+
+
+async def _test(ctx, arg1=""):
+    try:
+        await testC.testfield(ctx, "","")
     except:
         await ctx.send("<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
 
@@ -290,19 +395,23 @@ async def fbi(ctx, *arg):
         datajson = json.load(open(file))
         ship = []
         check_done = False
-        for a in arg:
-            ship.append(a)
-        print(datajson["forbiddenChar"])
-        for s in ship:
-            if s in datajson["forbiddenChar"]:
-                await ctx.send("Chibre")
-                check_done = True
-        if not check_done:
-            for name in ship:
-                datajson["forbiddenChar"].append(name)
-            with open("../json/forbiddenCharacter.json", 'w') as out:
-                json.dump(datajson, out)
-            await ctx.send("AjoutÃ© !")
+        if "list" in arg:
+            charlist = ""
+            for s in datajson["forbiddenChar"]:
+                charlist += " " + s.title() + ","
+            await ctx.send(charlist)
+        else:
+            for a in arg:
+                ship.append(a)
+            for s in ship:
+                if s in datajson["forbiddenChar"]:
+                    check_done = True
+            if not check_done:
+                for name in ship:
+                    datajson["forbiddenChar"].append(name)
+                with open("../json/forbiddenCharacter.json", 'w') as out:
+                    json.dump(datajson, out)
+                await ctx.send("She has been added on the watchlist. Good for her.")
     except:
         print(traceback.format_exc())
 
@@ -377,33 +486,23 @@ async def __sub_search(ctx, name):
     await sub(ctx, "search", list_name)
 """
 
+
 @bot.command(name="sub")
 async def _sub(ctx, type, *arg):
     try:
-        arg=reconstruct_string(arg)
+        if not len(arg)==0:
+            arg = reconstruct_string(arg)
         await sub(ctx, type, arg)
     except:
-        await ctx.send("<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
+        await print_err(ctx)
 
 
 async def sub(ctx, type, arg):
     try:
-        await Booru.sub(ctx, type, arg)
+        await Booru.sub(ctx, type, arg, db)
     except:
-        await ctx.send("<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
+        await print_err(ctx)
 
-def reconstruct_string(arg):
-    construct = []
-    b = ""
-    for a in arg:
-        if not "," in a:
-            b += a + " "
-        else:
-            b += a.replace(",", "")
-            construct.append(b.strip())
-            b = ""
-    construct.append(b.strip())
-    return construct
 
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
@@ -415,38 +514,38 @@ async def on_slash_command_error(ctx, err):
 
 async def error(ctx, error):
     if isinstance(error, commands.MissingRole):
-        await ctx.send("Tu n'as pas les droits !")
+        await ctx.send("You do not have the right for that. Maybe try asking the higher ups for permissions ?")
 
 
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
-        await ctx.send("Commande inexistante")
+        await ctx.send("This command does not exist, did you reade carefully the help given to you ?")
         return
 
 
-@tasks.loop(seconds=20)
-async def booru():
+
+async def booru(sfw_channel,nsfw_channel,check_channel,guild_id):
     sleep_counter = 1
     try:
-        await Danbooru.post(bot.get_channel(668493142349316106), bot.get_channel(668428634201260042),
-                            bot.get_channel(739145500560982034), bot)
+        if check_channel==0:
+            await Danbooru.check("","n")
+        await Danbooru.post(sfw_channel,nsfw_channel,check_channel, db, guild_id, bot)
     except pybooru.exceptions.PybooruHTTPError:
         time.sleep(60 * sleep_counter)
-        booru.restart()
+        for task in task_list:
+            task.restart()
         sleep_counter += 1
     except:
         await bot.get_channel(534084645109628938).send(
             "<@!142682730776231936>\n```" + str(traceback.format_exc()) + "```")
 
 
-@booru.before_loop
 async def before_booru():
-    print("DÃ©but de boucle")
+    print("Début de boucle")
     await bot.wait_until_ready()
 
 
-@booru.after_loop
 async def after_booru():
     print("Fin de boucle")
 
