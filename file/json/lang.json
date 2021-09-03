@@ -1,0 +1,81 @@
+{
+  "EN": [
+    {
+      "ping_reply_embed_1": "Prefix",
+      "ping_reply_embed_2": "Creator",
+      "ping_reply_embed_3": "Website",
+      "ping_reply_embed_4": "Miscellaneous",
+      "ping_reply_embed_4.1": "n!help to get some help",
+      "ping_reply_embed_4.2": "Used API : [AzurAPI](https://azurapi.github.io/)",
+      "ping_reply": "Here is my business card, let me know if you got work for me.",
+      "ship_reply": "Please review these documents properly, Commander.",
+      "skin_reply": "Don't go spending all our money on outfits. I'd appreciate if you did buy me one, nevertheless.",
+      "stat_reply": "Please don't pay too much attention to these, statistics doesn't embody how we perform on the battlefield.",
+      "build_reply": "I really hope you're planning to build my sisters in the near future. I really do want to live a laid back life in their company.",
+      "build_reply_wrong": "The guide seems to tell you to do it that way : n!build <Timer> (Example: n!build 01:25:00). Please try again.",
+      "skill_reply": "It is a good thing you are reviewing your fleet that carefully. Maybe with you we could return to peace sooner that expected..",
+      "skill_reply_wrong": "The guide seems to tell you to do it that way : n!skill <Name> (Example: n!skill Newcastle). Please try again.",
+      "no_permissions_reply": "You do not have the right for that. Maybe try asking the higher ups for permission?",
+      "no_command_reply": "This command does not exist, did you read carefully the help given to you?",
+      "stat_embed_title": "Stats for ",
+      "ship_embed_text_1": "Wiki Page",
+      "ship_embed_text_2": "Construction",
+      "ship_embed_text_3": "Rarity",
+      "ship_embed_text_4": "Nationality",
+      "ship_embed_text_5": "Type",
+      "snip_embed_text_6": "Class",
+      "snip_embed_text_7": "Voice Actor",
+      "danbooru_unknown_artist": "Unknown",
+      "danbooru_embed_text": {
+        "1": "Artist",
+        "2": "Picture link"
+      },
+      "sub_already_on_list": " seems to be already on your list. Is your memory really that short ?",
+      "sub_added_to_list": "I added them all to your list, the more, the merrier, as they say.",
+      "sub_removed_from_list": "I removed them from your list. May I know the reason ?",
+      "sub_removed_not_on_list": {
+        "1": "These one were not on your list :",
+        "2": ". How come you made such a simple mistake, perhaps you need to get some sleep ?"
+      },
+      "list_reply": "Here is your list, commander :\n",
+      "empty_list": "Your list is empty. Want me to help you create one ?",
+      "nsfw_enabled": "You will now be notified when someone from your list appears",
+      "nsfw_disabled": "You will now never be notified when someone from your list appears",
+      "purged_list": "I throw your list in the bin. Make sure to not regret that later.",
+      "requested_multiple_char": "Please request one character at a time, i need time to process your request.",
+    }
+  ],
+  "FR": [
+    {
+      "ping_reply": "Voici ma carte de visite, faite moi savoir si vous avez du travail pour moi.",
+      "ping_reply_embed_1": "Préfixe",
+      "ping_reply_embed_2": "Créateur",
+      "ping_reply_embed_3": "Site Internet",
+      "ping_reply_embed_4": "Divers",
+      "ping_reply_embed_4.1": "n!help pour obtenir de l'aide",
+      "ping_reply_embed_4.2": "API utilisé : [AzurAPI](https://azurapi.github.io/)",
+      "ship_reply": "Passez ses documents en revue correctement, Commandant.",
+      "skin_reply": "N'allez pas tout dépenser dans des habits. Même si j'apprécierais tout de même que vous m'en achetiez.",
+      "stat_reply": "N'y faite pas trop attention, ces statistiques ne représentent pas nos performances sur un champ de bataille.",
+      "build_reply": "J'espère que vous prévoyez bientôt de construire mes sœurs. Je serais vraiment heureuse de vivre une vie tranquille en leur compagnie.",
+      "build_reply_wrong": "Le guide vous dit qu'il faut faire de cette façon : n!build <Timer> (Example: n!build 01:25:00). Vous pouvez réessayer.",
+      "skill_reply": "C'est une bonne chose que vous passiez soigneusement en revue vos flottes. Peut-être que nous pourrons revenir en temps de paix plus tôt que prévue...",
+      "skill_reply_wrong": "Le guide vous dit qu'il faut faire de cette façon : n!skill <Nom> (Example: n!skill Newcastle). Vous pouvez réessayer.",
+      "no_permissions_reply": "Vous n'avez pas les droits pour faire ça. Essayez de demander à vos supérieurs pour la permission ?",
+      "no_command_reply": "Il semblerait que cette commande n'existe pas. Avez-vous bien lu l'aide que l'on vous a fournie ?",
+      "stat_embed_title": "Stats pour ",
+      "ship_embed_text_1": "Page du Wiki",
+      "ship_embed_text_2": "Construction",
+      "ship_embed_text_3": "Rareté",
+      "ship_embed_text_4": "Nationalité",
+      "ship_embed_text_5": "Type",
+      "snip_embed_text_6": "Classe",
+      "snip_embed_text_7": "Doubleur",
+      "danbooru_unknown_artist": "Inconnu",
+      "danbooru_embed_text": {
+        "1": "Artiste",
+        "2": "Lien de l'image"
+      }
+    }
+  ]
+}
